@@ -1,11 +1,3 @@
-/*
-1. Minting new tokens: The platform should be able to create new tokens and distribute them to players as 
-2. rewards. Only the owner can mint tokens.
-3. Transferring tokens: Players should be able to transfer their tokens to others.
-4. Redeeming tokens: Players should be able to redeem their tokens for items in the in-game store.
-5. Checking token balance: Players should be able to check their token balance at any time.
-6. Burning tokens: Anyone should be able to burn tokens, that they own, that are no longer needed.
-*/
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
@@ -13,25 +5,44 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract DegenToken is ERC20, Ownable {
-    
-    uint256 public constant REDEMPTION_RATE = 100;
+    struct Item {
+        uint256 price;
+        uint256 stock;
+        string name;
+    }
 
-    mapping(address => uint256) public swordsOwned;
+    Item[] public items;
+
+    mapping(address => mapping(uint256 => uint256)) public playerItems;
 
     constructor() ERC20("Degen", "DGN") Ownable(msg.sender) {
         _mint(msg.sender, 10 * (10 ** uint256(decimals())));
+
+        items.push(Item({price: 100, stock: 100, name: "Sword"}));
+        items.push(Item({price: 200, stock: 50, name: "Shield"}));
+        // Add more items as needed
     }
 
-    function redeemSword(uint256 quantity) public {
-        uint256 cost = REDEMPTION_RATE * quantity;
-        require(balanceOf(msg.sender) >= cost, "Not enough tokens to redeem for a sword");
+    function redeemItem(uint256 itemId) public {
+        Item storage item = items[itemId];
+        require(item.stock > 0, "Item out of stock");
+        require(balanceOf(msg.sender) >= item.price, "Not enough tokens to redeem");
 
-        swordsOwned[msg.sender] += quantity;
-        _burn(msg.sender, cost);
+        // Logic to deliver the item to the player
+        playerItems[msg.sender][itemId]++;
+
+        item.stock--;
+        _burn(msg.sender, item.price);
     }
 
-    function checkSwordsOwned(address user) public view returns (uint256) {
-        return swordsOwned[user];
+
+
+    function getItemName(uint256 itemId) public view returns (string memory) {
+        return items[itemId].name;
+    }
+
+    function getItemPrice(uint256 itemId) public view returns (uint256) {
+        return items[itemId].price;
     }
 
     function mintTokens(address to, uint256 amount) public onlyOwner {
@@ -47,8 +58,7 @@ contract DegenToken is ERC20, Ownable {
         _burn(msg.sender, amount);
     }
 
-    function transferTokens(address to, uint256 amount) public {
-        require(to != address(0), "Invalid address");
+   function transferTokens(address to, uint256 amount) public {
         require(balanceOf(msg.sender) >= amount, "Not enough tokens to transfer");
         _transfer(msg.sender, to, amount);
     }
